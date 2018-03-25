@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using System.Text;
 using Dotmim.Sync.Data;
 using Dotmim.Sync.Manager;
 using Dotmim.Sync.PostgreSql.Builders;
@@ -13,15 +12,13 @@ namespace Dotmim.Sync.PostgreSql.Manager
 {
     public class PostgreSqlManagerTable : IDbManagerTable
     {
-        private NpgsqlConnection _sqlConnection;
-        private NpgsqlTransaction _sqlTransaction;
-        private PostgreSqlDbMetadata _postgreSqlDbMetadata;
+        private readonly NpgsqlConnection _sqlConnection;
+        private readonly NpgsqlTransaction _sqlTransaction;
 
         public PostgreSqlManagerTable(DbConnection connection, DbTransaction transaction)
         {
             _sqlConnection = connection as NpgsqlConnection;
             _sqlTransaction = transaction as NpgsqlTransaction;
-            _postgreSqlDbMetadata = new PostgreSqlDbMetadata();
         }
 
         #region Implementation of IDbManagerTable
@@ -40,11 +37,10 @@ namespace Dotmim.Sync.PostgreSql.Manager
             {
                 var typeName = c["data_type"].ToString();
                 var name = c["column_name"].ToString();
-                //var isUnsigned = c["column_type"] != DBNull.Value ? ((string)c["column_type"]).Contains("unsigned") : false;
-                var isUnsigned = false;
+                
 
                 // Gets the datastore owner dbType 
-                var datastoreDbType = (NpgsqlDbType)postgreSqlDbMetadata.ValidateOwnerDbType(typeName, isUnsigned, false);
+                var datastoreDbType = (NpgsqlDbType)postgreSqlDbMetadata.ValidateOwnerDbType(typeName, false, false);
                 // once we have the datastore type, we can have the managed type
                 Type columnType = postgreSqlDbMetadata.ValidateType(datastoreDbType);
 
@@ -56,9 +52,9 @@ namespace Dotmim.Sync.PostgreSql.Manager
                 dbColumn.MaxLength = maxLengthLong > Int32.MaxValue ? Int32.MaxValue : (Int32)maxLengthLong;
                 dbColumn.Precision = c["numeric_precision"] != DBNull.Value ? Convert.ToByte(c["numeric_precision"]) : (byte)0;
                 dbColumn.Scale = c["numeric_scale"] != DBNull.Value ? Convert.ToByte(c["numeric_scale"]) : (byte)0;
-                dbColumn.AllowDBNull = (String)c["is_nullable"] == "NO" ? false : true;
+                dbColumn.AllowDBNull = (String)c["is_nullable"] != "NO";
                 dbColumn.AutoIncrement = typeName.Contains("serial");
-                dbColumn.IsUnsigned = isUnsigned;
+                dbColumn.IsUnsigned = false;
 
                 columns.Add(dbColumn);
 

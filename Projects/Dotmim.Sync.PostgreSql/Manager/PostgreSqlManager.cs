@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Text;
+﻿using System.Data.Common;
 using Dotmim.Sync.Manager;
 
 namespace Dotmim.Sync.PostgreSql.Manager

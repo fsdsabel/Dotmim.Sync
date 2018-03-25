@@ -12,13 +12,9 @@ namespace Dotmim.Sync.PostgreSql.Builders
     /// </summary>
     public class PostgreSqlBuilder : DbBuilder
     {
-
-        PostgreSqlObjectNames sqlObjectNames;
-       
         public PostgreSqlBuilder(DmTable tableDescription) : base(tableDescription)
         {
-            sqlObjectNames = new PostgreSqlObjectNames(tableDescription);
-        }
+     }
 
         internal static (ObjectNameParser tableName, ObjectNameParser trackingName) GetParsers(DmTable tableDescription)
         {
@@ -28,6 +24,7 @@ namespace Dotmim.Sync.PostgreSql.Builders
 
             return (originalTableName, trackingTableName);
         }
+
         public static string WrapScriptTextWithComments(string commandText, string commentText)
         {
             StringBuilder stringBuilder = new StringBuilder();

@@ -297,7 +297,7 @@ namespace Dotmim.Sync.PostgreSql
                 stringBuilder.Append(strFromPrefix);
                 stringBuilder.Append(quotedColumn.QuotedString);
                 stringBuilder.Append(" = ");
-                stringBuilder.Append($"{PostgreSqlBuilderProcedure.PGSQL_PREFIX_PARAMETER}{column.ColumnName}");
+                stringBuilder.Append($"{PostgreSqlBuilderProcedure.PgsqlPrefixParameter}{column.ColumnName}");
                 str1 = " AND ";
             }
             return stringBuilder.ToString();

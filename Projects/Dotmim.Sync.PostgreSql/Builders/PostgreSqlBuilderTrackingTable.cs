@@ -13,59 +13,52 @@ namespace Dotmim.Sync.PostgreSql.Builders
 {
     public class PostgreSqlBuilderTrackingTable : IDbBuilderTrackingTableHelper
     {
-        private ObjectNameParser tableName;
-        private ObjectNameParser trackingName;
-        private DmTable tableDescription;
-        private NpgsqlConnection connection;
-        private NpgsqlTransaction transaction;
-        public FilterClauseCollection Filters { get; set; }
-        private PostgreSqlDbMetadata mySqlDbMetadata;
+        private readonly NpgsqlConnection _connection;
+        private readonly PostgreSqlDbMetadata _mySqlDbMetadata;
+        private readonly DmTable _tableDescription;
+        private readonly ObjectNameParser _tableName;
+        private readonly ObjectNameParser _trackingName;
+        private readonly NpgsqlTransaction _transaction;
 
 
-        public PostgreSqlBuilderTrackingTable(DmTable tableDescription, DbConnection connection, DbTransaction transaction = null)
+        public PostgreSqlBuilderTrackingTable(DmTable tableDescription, DbConnection connection,
+            DbTransaction transaction = null)
         {
-            this.connection = connection as NpgsqlConnection;
-            this.transaction = transaction as NpgsqlTransaction;
-            this.tableDescription = tableDescription;
-            (this.tableName, this.trackingName) = PostgreSqlBuilder.GetParsers(this.tableDescription);
-            this.mySqlDbMetadata = new PostgreSqlDbMetadata();
+            _connection = connection as NpgsqlConnection;
+            _transaction = transaction as NpgsqlTransaction;
+            _tableDescription = tableDescription;
+            (_tableName, _trackingName) = PostgreSqlBuilder.GetParsers(_tableDescription);
+            _mySqlDbMetadata = new PostgreSqlDbMetadata();
         }
+
+        public FilterClauseCollection Filters { get; set; }
 
 
         public void CreateIndex()
         {
-
-
-        }
-
-        private string CreateIndexCommandText()
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-
-            return stringBuilder.ToString();
         }
 
         public string CreateIndexScriptText()
         {
-            string str = string.Concat("Create index on Tracking Table ", trackingName.QuotedString);
+            //var str = string.Concat("Create index on Tracking Table ", _trackingName.QuotedString);
             return "";
         }
 
         public void CreatePk()
         {
-            bool alreadyOpened = this.connection.State == ConnectionState.Open;
+            var alreadyOpened = _connection.State == ConnectionState.Open;
             try
             {
                 using (var command = new NpgsqlCommand())
                 {
                     if (!alreadyOpened)
-                        this.connection.Open();
+                        _connection.Open();
 
-                    if (transaction != null)
-                        command.Transaction = transaction;
+                    if (_transaction != null)
+                        command.Transaction = _transaction;
 
-                    command.CommandText = this.CreatePkCommandText();
-                    command.Connection = this.connection;
+                    command.CommandText = CreatePkCommandText();
+                    command.Connection = _connection;
 
                     // Sometimes we could have an empty string if pk is created during table creation
                     if (!string.IsNullOrEmpty(command.CommandText))
@@ -79,76 +72,211 @@ namespace Dotmim.Sync.PostgreSql.Builders
             }
             finally
             {
-                if (!alreadyOpened && this.connection.State != ConnectionState.Closed)
-                    this.connection.Close();
+                if (!alreadyOpened && _connection.State != ConnectionState.Closed)
+                    _connection.Close();
             }
         }
+
         public string CreatePkScriptText()
         {
-            string str = string.Concat("No need to Create Primary Key on Tracking Table since it's done during table creation ", trackingName.QuotedString);
-            return "";
-        }
-
-        public string CreatePkCommandText()
-        {
+            /*var str = string.Concat(
+                "No need to Create Primary Key on Tracking Table since it's done during table creation ",
+                _trackingName.QuotedString);*/
             return "";
         }
 
         public void CreateTable()
         {
-            bool alreadyOpened = this.connection.State == ConnectionState.Open;
+            var alreadyOpened = _connection.State == ConnectionState.Open;
 
             try
             {
                 using (var command = new NpgsqlCommand())
                 {
                     if (!alreadyOpened)
-                        this.connection.Open();
+                        _connection.Open();
 
-                    if (this.transaction != null)
-                        command.Transaction = this.transaction;
+                    if (_transaction != null)
+                        command.Transaction = _transaction;
 
-                    command.CommandText = this.CreateTableCommandText();
-                    command.Connection = this.connection;
+                    command.CommandText = CreateTableCommandText();
+                    command.Connection = _connection;
                     command.ExecuteNonQuery();
-
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error during CreateIndex : {ex}");
                 throw;
-
             }
             finally
             {
-                if (!alreadyOpened && this.connection.State != ConnectionState.Closed)
-                    this.connection.Close();
-
+                if (!alreadyOpened && _connection.State != ConnectionState.Closed)
+                    _connection.Close();
             }
-
-
         }
 
         public string CreateTableScriptText()
         {
-            string str = string.Concat("Create Tracking Table ", trackingName.QuotedString);
-            return PostgreSqlBuilder.WrapScriptTextWithComments(this.CreateTableCommandText(), str);
+            var str = string.Concat("Create Tracking Table ", _trackingName.QuotedString);
+            return PostgreSqlBuilder.WrapScriptTextWithComments(CreateTableCommandText(), str);
+        }
+
+        public bool NeedToCreateTrackingTable()
+        {
+            return !PostgreSqlManagementUtils.TableExists(_connection, _transaction, _trackingName.UnquotedString);
+        }
+
+        public void PopulateFromBaseTable()
+        {
+            var alreadyOpened = _connection.State == ConnectionState.Open;
+
+            try
+            {
+                using (var command = new NpgsqlCommand())
+                {
+                    if (!alreadyOpened)
+                        _connection.Open();
+
+                    if (_transaction != null)
+                        command.Transaction = _transaction;
+
+                    command.CommandText = CreatePopulateFromBaseTableCommandText();
+                    command.Connection = _connection;
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during CreateIndex : {ex}");
+                throw;
+            }
+            finally
+            {
+                if (!alreadyOpened && _connection.State != ConnectionState.Closed)
+                    _connection.Close();
+            }
+        }
+
+        public string CreatePopulateFromBaseTableScriptText()
+        {
+            var str = string.Concat("Populate tracking table ", _trackingName.QuotedString,
+                " for existing data in table ", _tableName.QuotedString);
+            return PostgreSqlBuilder.WrapScriptTextWithComments(CreatePopulateFromBaseTableCommandText(), str);
+        }
+
+        public void PopulateNewFilterColumnFromBaseTable(DmColumn filterColumn)
+        {
+            throw new NotImplementedException();
+        }
+
+        public string ScriptPopulateNewFilterColumnFromBaseTable(DmColumn filterColumn)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void AddFilterColumn(DmColumn filterColumn)
+        {
+            var alreadyOpened = _connection.State == ConnectionState.Open;
+
+            try
+            {
+                using (var command = new NpgsqlCommand())
+                {
+                    if (!alreadyOpened)
+                        _connection.Open();
+
+                    if (_transaction != null)
+                        command.Transaction = _transaction;
+
+                    command.CommandText = AddFilterColumnCommandText(filterColumn);
+                    command.Connection = _connection;
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during CreateIndex : {ex}");
+                throw;
+            }
+            finally
+            {
+                if (!alreadyOpened && _connection.State != ConnectionState.Closed)
+                    _connection.Close();
+            }
+        }
+
+        public string ScriptAddFilterColumn(DmColumn filterColumn)
+        {
+            var quotedColumnName = new ObjectNameParser(filterColumn.ColumnName, "\"", "\"");
+
+            var str = string.Concat("Add new filter column, ", quotedColumnName.UnquotedString, ", to Tracking Table ",
+                _trackingName.QuotedString);
+            return PostgreSqlBuilder.WrapScriptTextWithComments(AddFilterColumnCommandText(filterColumn), str);
+        }
+
+        public void DropTable()
+        {
+            var commandText = $"drop table if exists {_trackingName.QuotedString}";
+
+            var alreadyOpened = _connection.State == ConnectionState.Open;
+
+            try
+            {
+                if (!alreadyOpened)
+                    _connection.Open();
+
+                using (var command = new NpgsqlCommand(commandText, _connection))
+                {
+                    if (_transaction != null)
+                        command.Transaction = _transaction;
+
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during DropTableCommand : {ex}");
+                throw;
+            }
+            finally
+            {
+                if (!alreadyOpened && _connection.State != ConnectionState.Closed)
+                    _connection.Close();
+            }
+        }
+
+        public string DropTableScriptText()
+        {
+            var commandText = $"drop table if exists {_trackingName.QuotedString}";
+
+            var str1 = $"Drop table {_trackingName.QuotedString}";
+            return PostgreSqlBuilder.WrapScriptTextWithComments(commandText, str1);
+        }
+
+
+        public string CreatePkCommandText()
+        {
+            return "";
         }
 
         public string CreateTableCommandText()
         {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine($"CREATE TABLE {trackingName.QuotedString} (");
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine($"CREATE TABLE {_trackingName.QuotedString} (");
 
             // Adding the primary key
-            foreach (DmColumn pkColumn in this.tableDescription.PrimaryKey.Columns)
+            foreach (var pkColumn in _tableDescription.PrimaryKey.Columns)
             {
                 var quotedColumnName = new ObjectNameParser(pkColumn.ColumnName, "\"", "\"").QuotedString;
 
-                var columnTypeString = this.mySqlDbMetadata.TryGetOwnerDbTypeString(pkColumn.OriginalDbType, pkColumn.DbType, false, false, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+                var columnTypeString = _mySqlDbMetadata.TryGetOwnerDbTypeString(pkColumn.OriginalDbType,
+                    pkColumn.DbType, false, false, _tableDescription.OriginalProvider,
+                    PostgreSqlSyncProvider.ProviderType);
                 var unQuotedColumnType = new ObjectNameParser(columnTypeString, "\"", "\"").UnquotedString;
-                var columnPrecisionString = this.mySqlDbMetadata.TryGetOwnerDbTypePrecision(pkColumn.OriginalDbType, pkColumn.DbType, false, false, pkColumn.MaxLength, pkColumn.Precision, pkColumn.Scale, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+                var columnPrecisionString = _mySqlDbMetadata.TryGetOwnerDbTypePrecision(pkColumn.OriginalDbType,
+                    pkColumn.DbType, false, false, pkColumn.MaxLength, pkColumn.Precision, pkColumn.Scale,
+                    _tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
                 var columnType = $"{unQuotedColumnType} {columnPrecisionString}";
 
                 stringBuilder.AppendLine($"{quotedColumnName} {columnType} NOT NULL, ");
@@ -163,24 +291,31 @@ namespace Dotmim.Sync.PostgreSql.Builders
             stringBuilder.AppendLine($"\"sync_row_is_tombstone\" INT2 NOT NULL default 0, ");
             stringBuilder.AppendLine($"\"last_change_datetime\" TIMESTAMP NULL, ");
 
-            if (this.Filters != null && this.Filters.Count > 0)
-                foreach (var filter in this.Filters)
+            if (Filters != null && Filters.Count > 0)
+                foreach (var filter in Filters)
                 {
-                    var columnFilter = this.tableDescription.Columns[filter.ColumnName];
+                    var columnFilter = _tableDescription.Columns[filter.ColumnName];
 
                     if (columnFilter == null)
-                        throw new InvalidExpressionException($"Column {filter.ColumnName} does not exist in Table {this.tableDescription.TableName.ToLowerInvariant()}");
+                        throw new InvalidExpressionException(
+                            $"Column {filter.ColumnName} does not exist in Table {_tableDescription.TableName.ToLowerInvariant()}");
 
-                    var isPk = this.tableDescription.PrimaryKey.Columns.Any(dm => this.tableDescription.IsEqual(dm.ColumnName.ToLowerInvariant(), filter.ColumnName.ToLowerInvariant()));
+                    var isPk = _tableDescription.PrimaryKey.Columns.Any(dm =>
+                        _tableDescription.IsEqual(dm.ColumnName.ToLowerInvariant(),
+                            filter.ColumnName.ToLowerInvariant()));
                     if (isPk)
                         continue;
 
 
                     var quotedColumnName = new ObjectNameParser(columnFilter.ColumnName, "\"", "\"").QuotedString;
 
-                    var columnTypeString = this.mySqlDbMetadata.TryGetOwnerDbTypeString(columnFilter.OriginalDbType, columnFilter.DbType, false, false, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+                    var columnTypeString = _mySqlDbMetadata.TryGetOwnerDbTypeString(columnFilter.OriginalDbType,
+                        columnFilter.DbType, false, false, _tableDescription.OriginalProvider,
+                        PostgreSqlSyncProvider.ProviderType);
                     var unQuotedColumnType = new ObjectNameParser(columnTypeString, "\"", "\"").UnquotedString;
-                    var columnPrecisionString = this.mySqlDbMetadata.TryGetOwnerDbTypePrecision(columnFilter.OriginalDbType, columnFilter.DbType, false, false, columnFilter.MaxLength, columnFilter.Precision, columnFilter.Scale, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+                    var columnPrecisionString = _mySqlDbMetadata.TryGetOwnerDbTypePrecision(columnFilter.OriginalDbType,
+                        columnFilter.DbType, false, false, columnFilter.MaxLength, columnFilter.Precision,
+                        columnFilter.Scale, _tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
                     var columnType = $"{unQuotedColumnType} {columnPrecisionString}";
 
                     var nullableColumn = columnFilter.AllowDBNull ? "NULL" : "NOT NULL";
@@ -189,75 +324,35 @@ namespace Dotmim.Sync.PostgreSql.Builders
                 }
 
             stringBuilder.Append(" PRIMARY KEY (");
-            for (int i = 0; i < this.tableDescription.PrimaryKey.Columns.Length; i++)
+            for (var i = 0; i < _tableDescription.PrimaryKey.Columns.Length; i++)
             {
-                DmColumn pkColumn = this.tableDescription.PrimaryKey.Columns[i];
+                var pkColumn = _tableDescription.PrimaryKey.Columns[i];
                 var quotedColumnName = new ObjectNameParser(pkColumn.ColumnName, "\"", "\"").QuotedObjectName;
 
                 stringBuilder.Append(quotedColumnName);
 
-                if (i < this.tableDescription.PrimaryKey.Columns.Length - 1)
+                if (i < _tableDescription.PrimaryKey.Columns.Length - 1)
                     stringBuilder.Append(", ");
             }
+
             stringBuilder.Append("))");
 
             return stringBuilder.ToString();
         }
 
-        public bool NeedToCreateTrackingTable()
-        {
-            return !PostgreSqlManagementUtils.TableExists(connection, transaction, trackingName.UnquotedString);
-
-        }
-
-        public void PopulateFromBaseTable()
-        {
-            bool alreadyOpened = this.connection.State == ConnectionState.Open;
-
-            try
-            {
-                using (var command = new NpgsqlCommand())
-                {
-                    if (!alreadyOpened)
-                        this.connection.Open();
-
-                    if (this.transaction != null)
-                        command.Transaction = this.transaction;
-
-                    command.CommandText = this.CreatePopulateFromBaseTableCommandText();
-                    command.Connection = this.connection;
-                    command.ExecuteNonQuery();
-
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error during CreateIndex : {ex}");
-                throw;
-
-            }
-            finally
-            {
-                if (!alreadyOpened && this.connection.State != ConnectionState.Closed)
-                    this.connection.Close();
-
-            }
-
-        }
-
         private string CreatePopulateFromBaseTableCommandText()
         {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine(string.Concat("INSERT INTO ", trackingName.QuotedString, " ("));
-            StringBuilder stringBuilder1 = new StringBuilder();
-            StringBuilder stringBuilder2 = new StringBuilder();
-            string empty = string.Empty;
-            StringBuilder stringBuilderOnClause = new StringBuilder("ON ");
-            StringBuilder stringBuilderWhereClause = new StringBuilder("WHERE ");
-            string str = string.Empty;
-            string baseTable = "\"base\"";
-            string sideTable = "\"side\"";
-            foreach (var pkColumn in this.tableDescription.PrimaryKey.Columns)
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine(string.Concat("INSERT INTO ", _trackingName.QuotedString, " ("));
+            var stringBuilder1 = new StringBuilder();
+            var stringBuilder2 = new StringBuilder();
+            var empty = string.Empty;
+            var stringBuilderOnClause = new StringBuilder("ON ");
+            var stringBuilderWhereClause = new StringBuilder("WHERE ");
+            var str = string.Empty;
+            var baseTable = "\"base\"";
+            var sideTable = "\"side\"";
+            foreach (var pkColumn in _tableDescription.PrimaryKey.Columns)
             {
                 var quotedColumnName = new ObjectNameParser(pkColumn.ColumnName, "\"", "\"").QuotedString;
 
@@ -265,20 +360,23 @@ namespace Dotmim.Sync.PostgreSql.Builders
 
                 stringBuilder2.Append(string.Concat(empty, baseTable, ".", quotedColumnName));
 
-                string[] quotedName = new string[] { str, baseTable, ".", quotedColumnName, " = ", sideTable, ".", quotedColumnName };
+                string[] quotedName = {str, baseTable, ".", quotedColumnName, " = ", sideTable, ".", quotedColumnName};
                 stringBuilderOnClause.Append(string.Concat(quotedName));
-                string[] strArrays = new string[] { str, sideTable, ".", quotedColumnName, " IS NULL" };
+                string[] strArrays = {str, sideTable, ".", quotedColumnName, " IS NULL"};
                 stringBuilderWhereClause.Append(string.Concat(strArrays));
                 empty = ", ";
                 str = " AND ";
             }
-            StringBuilder stringBuilder5 = new StringBuilder();
-            StringBuilder stringBuilder6 = new StringBuilder();
+
+            var stringBuilder5 = new StringBuilder();
+            var stringBuilder6 = new StringBuilder();
 
             if (Filters != null)
-                foreach (var filterColumn in this.Filters)
+                foreach (var filterColumn in Filters)
                 {
-                    var isPk = this.tableDescription.PrimaryKey.Columns.Any(dm => this.tableDescription.IsEqual(dm.ColumnName.ToLowerInvariant(), filterColumn.ColumnName.ToLowerInvariant()));
+                    var isPk = _tableDescription.PrimaryKey.Columns.Any(dm =>
+                        _tableDescription.IsEqual(dm.ColumnName.ToLowerInvariant(),
+                            filterColumn.ColumnName.ToLowerInvariant()));
                     if (isPk)
                         continue;
 
@@ -306,122 +404,29 @@ namespace Dotmim.Sync.PostgreSql.Builders
             stringBuilder.Append($"{PostgreSqlObjectNames.TimestampValue}, ");
             stringBuilder.Append("0");
             stringBuilder.AppendLine(string.Concat(stringBuilder5.ToString(), " "));
-            string[] localName = new string[] { "FROM ", tableName.QuotedString, " ", baseTable, " LEFT OUTER JOIN ", trackingName.QuotedString, " ", sideTable, " " };
+            string[] localName =
+            {
+                "FROM ", _tableName.QuotedString, " ", baseTable, " LEFT OUTER JOIN ", _trackingName.QuotedString, " ",
+                sideTable, " "
+            };
             stringBuilder.AppendLine(string.Concat(localName));
             stringBuilder.AppendLine(string.Concat(stringBuilderOnClause.ToString(), " "));
             stringBuilder.AppendLine(string.Concat(stringBuilderWhereClause.ToString(), "; \n"));
             return stringBuilder.ToString();
         }
 
-        public string CreatePopulateFromBaseTableScriptText()
-        {
-            string str = string.Concat("Populate tracking table ", trackingName.QuotedString, " for existing data in table ", tableName.QuotedString);
-            return PostgreSqlBuilder.WrapScriptTextWithComments(this.CreatePopulateFromBaseTableCommandText(), str);
-        }
-
-        public void PopulateNewFilterColumnFromBaseTable(DmColumn filterColumn)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string ScriptPopulateNewFilterColumnFromBaseTable(DmColumn filterColumn)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void AddFilterColumn(DmColumn filterColumn)
-        {
-            bool alreadyOpened = this.connection.State == ConnectionState.Open;
-
-            try
-            {
-                using (var command = new NpgsqlCommand())
-                {
-                    if (!alreadyOpened)
-                        this.connection.Open();
-
-                    if (this.transaction != null)
-                        command.Transaction = this.transaction;
-
-                    command.CommandText = this.AddFilterColumnCommandText(filterColumn);
-                    command.Connection = this.connection;
-                    command.ExecuteNonQuery();
-
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error during CreateIndex : {ex}");
-                throw;
-
-            }
-            finally
-            {
-                if (!alreadyOpened && this.connection.State != ConnectionState.Closed)
-                    this.connection.Close();
-
-            }
-
-        }
-
         private string AddFilterColumnCommandText(DmColumn col)
         {
             var quotedColumnName = new ObjectNameParser(col.ColumnName, "\"", "\"").QuotedString;
 
-            var columnTypeString = this.mySqlDbMetadata.TryGetOwnerDbTypeString(col.OriginalDbType, col.DbType, false, false, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
-            var columnPrecisionString = this.mySqlDbMetadata.TryGetOwnerDbTypePrecision(col.OriginalDbType, col.DbType, false, false, col.MaxLength, col.Precision, col.Scale, this.tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+            var columnTypeString = _mySqlDbMetadata.TryGetOwnerDbTypeString(col.OriginalDbType, col.DbType, false,
+                false, _tableDescription.OriginalProvider, PostgreSqlSyncProvider.ProviderType);
+            var columnPrecisionString = _mySqlDbMetadata.TryGetOwnerDbTypePrecision(col.OriginalDbType, col.DbType,
+                false, false, col.MaxLength, col.Precision, col.Scale, _tableDescription.OriginalProvider,
+                PostgreSqlSyncProvider.ProviderType);
             var columnType = $"{columnTypeString} {columnPrecisionString}";
 
             return string.Concat("ALTER TABLE ", quotedColumnName, " ADD ", columnType);
         }
-        public string ScriptAddFilterColumn(DmColumn filterColumn)
-        {
-            var quotedColumnName = new ObjectNameParser(filterColumn.ColumnName, "\"", "\"");
-
-            string str = string.Concat("Add new filter column, ", quotedColumnName.UnquotedString, ", to Tracking Table ", trackingName.QuotedString);
-            return PostgreSqlBuilder.WrapScriptTextWithComments(this.AddFilterColumnCommandText(filterColumn), str);
-        }
-
-        public void DropTable()
-        {
-            var commandText = $"drop table if exists {trackingName.QuotedString}";
-
-            bool alreadyOpened = connection.State == ConnectionState.Open;
-
-            try
-            {
-                if (!alreadyOpened)
-                    connection.Open();
-
-                using (var command = new NpgsqlCommand(commandText, connection))
-                {
-                    if (transaction != null)
-                        command.Transaction = transaction;
-
-                    command.ExecuteNonQuery();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error during DropTableCommand : {ex}");
-                throw;
-            }
-            finally
-            {
-                if (!alreadyOpened && connection.State != ConnectionState.Closed)
-                    connection.Close();
-
-            }
-
-        }
-
-        public string DropTableScriptText()
-        {
-            var commandText = $"drop table if exists {trackingName.QuotedString}";
-
-            var str1 = $"Drop table {trackingName.QuotedString}";
-            return PostgreSqlBuilder.WrapScriptTextWithComments(commandText, str1);
-        }
-
     }
 }

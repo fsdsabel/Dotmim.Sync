@@ -4,7 +4,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using Dotmim.Sync.Builders;
-using Dotmim.Sync.PostgreSql.Manager;
+using Dotmim.Sync.Manager;
 using Npgsql;
 
 namespace Dotmim.Sync.PostgreSql.Builders
@@ -131,7 +131,7 @@ namespace Dotmim.Sync.PostgreSql.Builders
                         ScopeInfo scopeInfo = new ScopeInfo();
                         scopeInfo.Name = reader["sync_scope_name"] as String;
                         scopeInfo.Id = (Guid)reader["sync_scope_id"];
-                        scopeInfo.LastTimestamp = PostgreSqlManager.ParseTimestamp(reader["scope_timestamp"]);
+                        scopeInfo.LastTimestamp = DbManager.ParseTimestamp(reader["scope_timestamp"]);
                         scopeInfo.LastSync = reader["scope_last_sync"] != DBNull.Value ? (DateTime?)reader["scope_last_sync"] : null;
                         scopeInfo.IsLocal = reader.GetBoolean(reader.GetOrdinal("scope_is_local"));
                         scopes.Add(scopeInfo);
@@ -257,7 +257,7 @@ namespace Dotmim.Sync.PostgreSql.Builders
                         {
                             scopeInfo.Name = reader["sync_scope_name"] as String;
                             scopeInfo.Id = (Guid)reader["sync_scope_id"];
-                            scopeInfo.LastTimestamp = PostgreSqlManager.ParseTimestamp(reader["scope_timestamp"]);
+                            scopeInfo.LastTimestamp = DbManager.ParseTimestamp(reader["scope_timestamp"]);
                             scopeInfo.IsLocal = (bool)reader["scope_is_local"];
                             scopeInfo.LastSync = reader["scope_last_sync"] != DBNull.Value ? (DateTime?)reader["scope_last_sync"] : null;
                         }

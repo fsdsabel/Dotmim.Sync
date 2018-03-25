@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Data;
-using Dotmim.Sync.Builders;
 using Dotmim.Sync.Data;
 using Dotmim.Sync.PostgreSql.Builders;
 using Npgsql;
@@ -13,19 +12,7 @@ namespace Dotmim.Sync.PostgreSql
             bool includeReturnValueParameter = false, NpgsqlTransaction transaction = null)
         {
             if (cmd == null) throw new ArgumentNullException("SqlCommand");
-
-            var textParser = new ObjectNameParser(cmd.CommandText);
-
-            // Hack to check for schema name in the spName
-            string schemaName = "dbo";
-            string spName = textParser.UnquotedString;
-            int firstDot = spName.IndexOf('.');
-            if (firstDot > 0)
-            {
-                schemaName = cmd.CommandText.Substring(0, firstDot);
-                spName = spName.Substring(firstDot + 1);
-            }
-
+            
             var alreadyOpened = connection.State == ConnectionState.Open;
 
             if (!alreadyOpened)
@@ -63,7 +50,7 @@ namespace Dotmim.Sync.PostgreSql
 
             var sqlParameter = new NpgsqlParameter
             {
-                ParameterName = $"{PostgreSqlBuilderProcedure.PGSQL_PREFIX_PARAMETER}{column.ColumnName}",
+                ParameterName = $"{PostgreSqlBuilderProcedure.PgsqlPrefixParameter}{column.ColumnName}",
                 DbType = column.DbType,
                 IsNullable = column.AllowDBNull
             };
@@ -79,7 +66,7 @@ namespace Dotmim.Sync.PostgreSql
             }
             else if (column.MaxLength > 0)
             {
-                sqlParameter.Size = (int)column.MaxLength;
+                sqlParameter.Size = column.MaxLength;
             }
             else if (sqlParameter.DbType == DbType.Guid)
             {

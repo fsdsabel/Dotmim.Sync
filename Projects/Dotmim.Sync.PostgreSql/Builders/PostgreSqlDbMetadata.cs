@@ -183,9 +183,9 @@ namespace Dotmim.Sync.PostgreSql.Builders
 
         public override string GetPrecisionStringFromOwnerDbType(object dbType, int maxLength, byte precision, byte scale)
         {
-            NpgsqlDbType NpgsqlDbType = (NpgsqlDbType)dbType;
+            NpgsqlDbType npgsqlDbType = (NpgsqlDbType)dbType;
 
-            if (NpgsqlDbType == NpgsqlDbType.Uuid)
+            if (npgsqlDbType == NpgsqlDbType.Uuid)
                 return string.Empty;
 
             var typeName = GetStringFromOwnerDbType(dbType);

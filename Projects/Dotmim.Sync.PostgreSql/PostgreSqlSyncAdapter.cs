@@ -12,56 +12,41 @@ namespace Dotmim.Sync.PostgreSql
 {
     public class PostgreSqlSyncAdapter : DbSyncAdapter
     {
-        private NpgsqlConnection connection;
-        private NpgsqlTransaction transaction;
-        private PostgreSqlObjectNames postgreSqlObjectNames;
-        // Derive Parameters cache
-        private static Dictionary<string, List<NpgsqlParameter>> derivingParameters = new Dictionary<string, List<NpgsqlParameter>>();
+        private readonly NpgsqlConnection _connection;
+        private readonly PostgreSqlObjectNames _postgreSqlObjectNames;
+        private readonly NpgsqlTransaction _transaction;
 
-       
-
-        public override DbConnection Connection
-        {
-            get
-            {
-                return this.connection;
-            }
-        }
-        public override DbTransaction Transaction
-        {
-            get
-            {
-                return this.transaction;
-            }
-
-        }
-
-        public PostgreSqlSyncAdapter(DmTable tableDescription, DbConnection connection, DbTransaction transaction) : base(tableDescription)
+        public PostgreSqlSyncAdapter(DmTable tableDescription, DbConnection connection, DbTransaction transaction) :
+            base(tableDescription)
         {
             var sqlc = connection as NpgsqlConnection;
-            this.connection = sqlc ?? throw new InvalidCastException("Connection should be a NpgsqlConnection");
+            _connection = sqlc ?? throw new InvalidCastException("Connection should be a NpgsqlConnection");
 
-            this.transaction = transaction as NpgsqlTransaction;
+            _transaction = transaction as NpgsqlTransaction;
 
-            this.postgreSqlObjectNames = new PostgreSqlObjectNames(TableDescription);
+            _postgreSqlObjectNames = new PostgreSqlObjectNames(TableDescription);
         }
 
-        public override bool IsPrimaryKeyViolation(Exception Error)
+        public override DbConnection Connection => _connection;
+
+        public override DbTransaction Transaction => _transaction;
+
+        public override bool IsPrimaryKeyViolation(Exception error)
         {
             return false;
         }
 
         public override DbCommand GetCommand(DbCommandType commandType, IEnumerable<string> additionals = null)
         {
-            var command = this.Connection.CreateCommand();
+            var command = Connection.CreateCommand();
             string text;
 
             if (additionals != null)
-                text = this.postgreSqlObjectNames.GetCommandName(commandType, additionals);
+                text = _postgreSqlObjectNames.GetCommandName(commandType, additionals);
             else
-                text = this.postgreSqlObjectNames.GetCommandName(commandType);
+                text = _postgreSqlObjectNames.GetCommandName(commandType);
 
-            
+
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = text;
             command.Connection = Connection;
@@ -75,38 +60,35 @@ namespace Dotmim.Sync.PostgreSql
 
         public override DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command)
         {
-           
-
             switch (commandType)
             {
                 case DbCommandType.SelectChanges:
-                    this.SetSelecteChangesParameters(command);
+                    SetSelecteChangesParameters(command);
                     break;
                 case DbCommandType.SelectRow:
-                    this.SetSelectRowParameters(command);
+                    SetSelectRowParameters(command);
                     break;
                 case DbCommandType.DeleteMetadata:
-                    this.SetDeleteMetadataParameters(command);
+                    SetDeleteMetadataParameters(command);
                     break;
                 case DbCommandType.DeleteRow:
-                    this.SetDeleteRowParameters(command);
+                    SetDeleteRowParameters(command);
                     break;
                 case DbCommandType.InsertMetadata:
-                    this.SetInsertMetadataParameters(command);
+                    SetInsertMetadataParameters(command);
                     break;
                 case DbCommandType.InsertRow:
-                    this.SetInsertRowParameters(command);
+                    SetInsertRowParameters(command);
                     break;
                 case DbCommandType.UpdateMetadata:
-                    this.SetUpdateMetadataParameters(command);
+                    SetUpdateMetadataParameters(command);
                     break;
                 case DbCommandType.UpdateRow:
-                    this.SetUpdateRowParameters(command);
-                    break;
-                default:
+                    SetUpdateRowParameters(command);
                     break;
             }
-            DbParameter returnValue = command.CreateParameter();
+
+            var returnValue = command.CreateParameter();
             returnValue.Direction = ParameterDirection.Output;
             returnValue.DbType = DbType.Int32;
             command.Parameters.Add(returnValue);
@@ -117,9 +99,9 @@ namespace Dotmim.Sync.PostgreSql
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -136,16 +118,15 @@ namespace Dotmim.Sync.PostgreSql
             p.ParameterName = "@sync_min_timestamp";
             p.DbType = DbType.Int64;
             command.Parameters.Add(p);
-
         }
 
         private void SetUpdateMetadataParameters(DbCommand command)
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -178,9 +159,9 @@ namespace Dotmim.Sync.PostgreSql
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -193,9 +174,9 @@ namespace Dotmim.Sync.PostgreSql
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -239,9 +220,9 @@ namespace Dotmim.Sync.PostgreSql
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -264,9 +245,9 @@ namespace Dotmim.Sync.PostgreSql
         {
             DbParameter p;
 
-            foreach (DmColumn column in this.TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
+            foreach (var column in TableDescription.PrimaryKey.Columns.Where(c => !c.ReadOnly))
             {
-                ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
+                var quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
                 p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
@@ -279,12 +260,10 @@ namespace Dotmim.Sync.PostgreSql
             p.DbType = DbType.Guid;
             p.Value = DBNull.Value;
             command.Parameters.Add(p);
-
         }
 
         private void SetDeleteMetadataParameters(DbCommand command)
         {
-            return;
         }
 
         private void SetSelecteChangesParameters(DbCommand command)
