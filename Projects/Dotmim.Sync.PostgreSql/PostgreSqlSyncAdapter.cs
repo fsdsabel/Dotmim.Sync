@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using Dotmim.Sync.Data;
-using System.Data.Common;
 using System.Data;
+using System.Data.Common;
+using System.Linq;
 using Dotmim.Sync.Builders;
+using Dotmim.Sync.Data;
+using Dotmim.Sync.PostgreSql.Builders;
 using Npgsql;
 
-namespace Dotmim.Sync.MySql
+namespace Dotmim.Sync.PostgreSql
 {
     public class PostgreSqlSyncAdapter : DbSyncAdapter
     {
@@ -16,6 +17,8 @@ namespace Dotmim.Sync.MySql
         private PostgreSqlObjectNames postgreSqlObjectNames;
         // Derive Parameters cache
         private static Dictionary<string, List<NpgsqlParameter>> derivingParameters = new Dictionary<string, List<NpgsqlParameter>>();
+
+       
 
         public override DbConnection Connection
         {
@@ -36,7 +39,7 @@ namespace Dotmim.Sync.MySql
         public PostgreSqlSyncAdapter(DmTable tableDescription, DbConnection connection, DbTransaction transaction) : base(tableDescription)
         {
             var sqlc = connection as NpgsqlConnection;
-            this.connection = sqlc ?? throw new InvalidCastException("Connection should be a MySqlConnection");
+            this.connection = sqlc ?? throw new InvalidCastException("Connection should be a NpgsqlConnection");
 
             this.transaction = transaction as NpgsqlTransaction;
 
@@ -58,8 +61,8 @@ namespace Dotmim.Sync.MySql
             else
                 text = this.postgreSqlObjectNames.GetCommandName(commandType);
 
-            // on MySql, everything is text based :)
-            command.CommandType = CommandType.Text;
+            
+            command.CommandType = CommandType.StoredProcedure;
             command.CommandText = text;
             command.Connection = Connection;
 
@@ -70,8 +73,10 @@ namespace Dotmim.Sync.MySql
         }
 
 
-        public override void SetCommandParameters(DbCommandType commandType, DbCommand command)
+        public override DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command)
         {
+           
+
             switch (commandType)
             {
                 case DbCommandType.SelectChanges:
@@ -101,6 +106,11 @@ namespace Dotmim.Sync.MySql
                 default:
                     break;
             }
+            DbParameter returnValue = command.CreateParameter();
+            returnValue.Direction = ParameterDirection.Output;
+            returnValue.DbType = DbType.Int32;
+            command.Parameters.Add(returnValue);
+            return returnValue;
         }
 
         private void SetUpdateRowParameters(DbCommand command)
@@ -111,7 +121,7 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
@@ -119,7 +129,7 @@ namespace Dotmim.Sync.MySql
 
             p = command.CreateParameter();
             p.ParameterName = "@sync_force_write";
-            p.DbType = DbType.Int64;
+            p.DbType = DbType.Int32;
             command.Parameters.Add(p);
 
             p = command.CreateParameter();
@@ -137,20 +147,25 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
             }
 
             p = command.CreateParameter();
-            p.ParameterName = "@update_scope_id";
+            p.ParameterName = "@sync_scope_id";
             p.DbType = DbType.Guid;
             command.Parameters.Add(p);
 
             p = command.CreateParameter();
             p.ParameterName = "@sync_row_is_tombstone";
             p.DbType = DbType.Int32;
+            command.Parameters.Add(p);
+
+            p = command.CreateParameter();
+            p.ParameterName = "@create_timestamp";
+            p.DbType = DbType.Int64;
             command.Parameters.Add(p);
 
             p = command.CreateParameter();
@@ -167,7 +182,7 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
@@ -182,12 +197,13 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
             }
 
+            /*
             p = command.CreateParameter();
             p.ParameterName = "@create_scope_id";
             p.DbType = DbType.Guid;
@@ -195,6 +211,11 @@ namespace Dotmim.Sync.MySql
 
             p = command.CreateParameter();
             p.ParameterName = "@update_scope_id";
+            p.DbType = DbType.Guid;
+            command.Parameters.Add(p);*/
+
+            p = command.CreateParameter();
+            p.ParameterName = "@sync_scope_id";
             p.DbType = DbType.Guid;
             command.Parameters.Add(p);
 
@@ -222,7 +243,7 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
@@ -230,7 +251,7 @@ namespace Dotmim.Sync.MySql
 
             p = command.CreateParameter();
             p.ParameterName = "@sync_force_write";
-            p.DbType = DbType.Int64;
+            p.DbType = DbType.Int32;
             command.Parameters.Add(p);
 
             p = command.CreateParameter();
@@ -247,7 +268,7 @@ namespace Dotmim.Sync.MySql
             {
                 ObjectNameParser quotedColumn = new ObjectNameParser(column.ColumnName);
                 p = command.CreateParameter();
-                p.ParameterName = $"@{quotedColumn.UnquotedStringWithUnderScore}";
+                p.ParameterName = $"@in_{quotedColumn.UnquotedStringWithUnderScore.ToLowerInvariant()}";
                 p.DbType = column.DbType;
                 p.SourceColumn = column.ColumnName;
                 command.Parameters.Add(p);
@@ -256,6 +277,7 @@ namespace Dotmim.Sync.MySql
             p = command.CreateParameter();
             p.ParameterName = "@sync_scope_id";
             p.DbType = DbType.Guid;
+            p.Value = DBNull.Value;
             command.Parameters.Add(p);
 
         }
@@ -279,11 +301,17 @@ namespace Dotmim.Sync.MySql
 
             p = command.CreateParameter();
             p.ParameterName = "@sync_scope_is_new";
-            p.DbType = DbType.Boolean;
+            p.DbType = DbType.Int16;
+            command.Parameters.Add(p);
+
+            p = command.CreateParameter();
+            p.ParameterName = "@sync_scope_is_reinit";
+            p.DbType = DbType.Int16;
             command.Parameters.Add(p);
         }
 
-        public override void ExecuteBatchCommand(DbCommand cmd, DmTable applyTable, DmTable failedRows, ScopeInfo scope)
+
+        public override void ExecuteBatchCommand(DbCommand cmd, DmView applyTable, DmTable failedRows, ScopeInfo scope)
         {
             throw new NotImplementedException();
         }

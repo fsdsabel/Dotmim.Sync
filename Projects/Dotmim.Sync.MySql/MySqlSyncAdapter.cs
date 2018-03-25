@@ -78,7 +78,7 @@ namespace Dotmim.Sync.MySql
         }
 
 
-        public override void SetCommandParameters(DbCommandType commandType, DbCommand command)
+        public override DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command)
         {
             switch (commandType)
             {
@@ -109,6 +109,7 @@ namespace Dotmim.Sync.MySql
                 default:
                     break;
             }
+            return null;
         }
 
         private void SetUpdateRowParameters(DbCommand command)

@@ -69,7 +69,7 @@ namespace Dotmim.Sync.Sqlite
             return command;
         }
 
-        public override void SetCommandParameters(DbCommandType commandType, DbCommand command)
+        public override DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command)
         {
             switch (commandType)
             {
@@ -103,6 +103,8 @@ namespace Dotmim.Sync.Sqlite
                 default:
                     break;
             }
+
+            return null;
         }
 
         private void SetResetParameters(DbCommand command)

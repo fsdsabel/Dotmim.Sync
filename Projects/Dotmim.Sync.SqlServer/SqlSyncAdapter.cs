@@ -381,13 +381,13 @@ namespace Dotmim.Sync.SqlServer.Builders
         /// <summary>
         /// Set a stored procedure parameters
         /// </summary>
-        public override void SetCommandParameters(DbCommandType commandType, DbCommand command)
+        public override DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command)
         {
             if (command == null)
-                return;
+                return null;
 
             if (command.Parameters != null && command.Parameters.Count > 0)
-                return;
+                return null;
 
             bool alreadyOpened = this.connection.State == ConnectionState.Open;
 
@@ -444,6 +444,8 @@ namespace Dotmim.Sync.SqlServer.Builders
                 if (colDesc != null && !string.IsNullOrEmpty(colDesc.ColumnName))
                     sqlParameter.SourceColumn = colDesc.ColumnName;
             }
+
+            return null;
         }
 
 

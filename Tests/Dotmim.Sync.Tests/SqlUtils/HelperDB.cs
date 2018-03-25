@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Text;
+using Npgsql;
 
 namespace Dotmim.Sync.Test.SqlUtils
 {
@@ -12,6 +13,10 @@ namespace Dotmim.Sync.Test.SqlUtils
         public static String GetDatabaseConnectionString(string dbName) => $@"Data Source=(localdb)\MSSQLLocalDB; Initial Catalog={dbName}; Integrated Security=true;";
 
         public static string GetMySqlDatabaseConnectionString(string dbName) => $@"Server=127.0.0.1; Port=3306; Database={dbName}; Uid=root; Pwd=azerty31$;";
+
+
+        public static string GetPostgreSqlDatabaseConnectionString(string dbName, string schema) => $@"Server=127.0.0.1; Port=5432; Database={dbName}; Search Path={schema}; Username=unittester; Password=unittester; Integrated Security=false";
+
         /// <summary>
         /// Generate a database
         /// </summary>
@@ -68,6 +73,19 @@ namespace Dotmim.Sync.Test.SqlUtils
             cmdDb.ExecuteNonQuery();
             connection.Close();
         }
+
+        public void ExecutePostgreSqlScript(string dbName, string schemaName, string script)
+        {
+            NpgsqlConnection connection = null;
+            NpgsqlCommand cmdDb = null;
+            connection = new NpgsqlConnection(GetPostgreSqlDatabaseConnectionString(dbName, schemaName));
+
+            connection.Open();
+            cmdDb = new NpgsqlCommand(script, connection);
+            cmdDb.ExecuteNonQuery();
+            connection.Close();
+        }
+
         /// <summary>
         /// Delete a database
         /// </summary>

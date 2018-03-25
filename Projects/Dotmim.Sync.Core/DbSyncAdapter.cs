@@ -52,7 +52,7 @@ namespace Dotmim.Sync
         /// <summary>
         /// Set parameters on a command
         /// </summary>
-        public abstract void SetCommandParameters(DbCommandType commandType, DbCommand command);
+        public abstract DbParameter SetCommandParameters(DbCommandType commandType, DbCommand command);
 
         /// <summary>
         /// Execute a batch command
@@ -112,13 +112,13 @@ namespace Dotmim.Sync
         /// <summary>
         /// Insert or update a metadata line
         /// </summary>
-        internal bool InsertOrUpdateMetadatas(DbCommand command, DmRow row, Guid? fromScopeId)
+        internal bool InsertOrUpdateMetadatas(DbCommand command, DmRow row, Guid? fromScopeId, DbParameter returnParameter)
         {
             int rowsApplied = 0;
 
             if (command == null)
                 throw new Exception("Missing command for apply metadata ");
-
+            
             // Set the id parameter
             this.SetColumnParametersValues(command, row);
 
@@ -162,6 +162,10 @@ namespace Dotmim.Sync
                     command.Transaction = Transaction;
 
                 rowsApplied = command.ExecuteNonQuery();
+                if (returnParameter != null)
+                {
+                    rowsApplied = Convert.ToInt32(returnParameter.Value);
+                }
             }
             finally
             {
@@ -378,8 +382,8 @@ namespace Dotmim.Sync
                     {
                         using (dbCommand = this.GetCommand(DbCommandType.InsertMetadata))
                         {
-                            this.SetCommandParameters(DbCommandType.InsertMetadata, dbCommand);
-                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id);
+                            var returnParameter = this.SetCommandParameters(DbCommandType.InsertMetadata, dbCommand);
+                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id, returnParameter);
                         }
                     }
                 }
@@ -390,8 +394,8 @@ namespace Dotmim.Sync
                     {
                         using (dbCommand = this.GetCommand(DbCommandType.UpdateMetadata))
                         {
-                            this.SetCommandParameters(DbCommandType.UpdateMetadata, dbCommand);
-                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id);
+                            var returnParameter = this.SetCommandParameters(DbCommandType.UpdateMetadata, dbCommand);
+                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id, returnParameter);
                         }
 
                     }
@@ -403,8 +407,8 @@ namespace Dotmim.Sync
                     {
                         using (dbCommand = this.GetCommand(DbCommandType.UpdateMetadata))
                         {
-                            this.SetCommandParameters(DbCommandType.UpdateMetadata, dbCommand);
-                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id);
+                            var returnParameter = this.SetCommandParameters(DbCommandType.UpdateMetadata, dbCommand);
+                            this.InsertOrUpdateMetadatas(dbCommand, dmRow, scope.Id, returnParameter);
                         }
                     }
                 }
@@ -430,7 +434,7 @@ namespace Dotmim.Sync
             {
 
                 // Deriving Parameters
-                this.SetCommandParameters(DbCommandType.InsertRow, command);
+                var returnParameter = this.SetCommandParameters(DbCommandType.InsertRow, command);
 
                 // Set the parameters value from row
                 this.SetColumnParametersValues(command, remoteRow);
@@ -451,6 +455,10 @@ namespace Dotmim.Sync
                         command.Transaction = Transaction;
 
                     rowInsertedCount = command.ExecuteNonQuery();
+                    if (returnParameter != null)
+                    {
+                        rowInsertedCount = Convert.ToInt32(returnParameter.Value);
+                    }
                 }
                 finally
                 {
@@ -472,7 +480,7 @@ namespace Dotmim.Sync
             using (var command = this.GetCommand(DbCommandType.DeleteRow))
             {
                 // Deriving Parameters
-                this.SetCommandParameters(DbCommandType.DeleteRow, command);
+                var returnParameter = this.SetCommandParameters(DbCommandType.DeleteRow, command);
 
                 // Set the parameters value from row
                 this.SetColumnParametersValues(command, sourceRow);
@@ -493,7 +501,10 @@ namespace Dotmim.Sync
                         command.Transaction = Transaction;
 
                     rowInsertedCount = command.ExecuteNonQuery();
-
+                    if (returnParameter != null)
+                    {
+                        rowInsertedCount = Convert.ToInt32(returnParameter.Value);
+                    }
                 }
                 finally
                 {
@@ -545,7 +556,7 @@ namespace Dotmim.Sync
             using (var command = this.GetCommand(DbCommandType.UpdateRow))
             {
                 // Deriving Parameters
-                this.SetCommandParameters(DbCommandType.UpdateRow, command);
+                var returnParameter = this.SetCommandParameters(DbCommandType.UpdateRow, command);
 
                 // Set the parameters value from row
                 this.SetColumnParametersValues(command, sourceRow);
@@ -564,7 +575,12 @@ namespace Dotmim.Sync
                     if (Transaction != null)
                         command.Transaction = Transaction;
 
+                    
                     rowInsertedCount = command.ExecuteNonQuery();
+                    if (returnParameter != null)
+                    {
+                        rowInsertedCount = Convert.ToInt32(returnParameter.Value);
+                    }
                 }
                 finally
                 {
@@ -724,10 +740,10 @@ namespace Dotmim.Sync
                         using (var updateMetadataCommand = GetCommand(DbCommandType.UpdateMetadata))
                         {
                             // Deriving Parameters
-                            this.SetCommandParameters(DbCommandType.UpdateMetadata, updateMetadataCommand);
+                            var returnParameter = this.SetCommandParameters(DbCommandType.UpdateMetadata, updateMetadataCommand);
 
                             // apply local row, set scope.id to null becoz applied locally
-                            var rowsApplied = this.InsertOrUpdateMetadatas(updateMetadataCommand, conflict.LocalRow, null);
+                            var rowsApplied = this.InsertOrUpdateMetadatas(updateMetadataCommand, conflict.LocalRow, null, returnParameter);
 
                             if (!rowsApplied)
                                 throw new Exception("No metadatas rows found, can't update the server side");
@@ -807,10 +823,10 @@ namespace Dotmim.Sync
                 using (var metadataCommand = GetCommand(commandType))
                 {
                     // Deriving Parameters
-                    this.SetCommandParameters(commandType, metadataCommand);
+                    var returnParameter = this.SetCommandParameters(commandType, metadataCommand);
 
                     // force applying client row, so apply scope.id (client scope here)
-                    var rowsApplied = this.InsertOrUpdateMetadatas(metadataCommand, conflict.RemoteRow, scope.Id);
+                    var rowsApplied = this.InsertOrUpdateMetadatas(metadataCommand, conflict.RemoteRow, scope.Id, returnParameter);
                     if (!rowsApplied)
                         throw new Exception("No metadatas rows found, can't update the server side");
                 }
